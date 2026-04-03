@@ -43,8 +43,8 @@ export default function HomePage() {
     <div className="min-h-screen bg-surface flex flex-col">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 border-b border-surface-border/50">
-        <span className="font-mono font-bold text-brand text-lg tracking-tight">
-          swift<span className="text-slate-200">keys</span>
+        <span className="font-mono font-bold text-lg tracking-tight">
+          <span className="text-brand">typ</span><span className="text-sky-400">dr</span>
         </span>
         <div className="flex items-center gap-6 text-sm text-slate-400">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
@@ -150,7 +150,7 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-surface-border/50 px-8 py-5 text-center text-xs text-slate-600 font-mono">
-        swiftkeys · next.js + mongodb · open source
+        typdr · next.js + mongodb · open source
       </footer>
     </div>
   );

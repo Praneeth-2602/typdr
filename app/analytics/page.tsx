@@ -261,7 +261,7 @@ export default function AnalyticsPage() {
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = url;
-      a.download = `swiftkeys-${Date.now()}.csv`;
+      a.download = `typdr-${Date.now()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -275,7 +275,7 @@ export default function AnalyticsPage() {
     return (
       <div className="min-h-screen bg-surface flex flex-col">
         <nav className="flex items-center justify-between px-8 py-4 border-b border-surface-border/50">
-          <Link href="/" className="font-mono font-bold text-brand text-base">swift<span className="text-slate-200">keys</span></Link>
+          <Link href="/" className="font-mono font-bold text-base"><span className="text-brand">typ</span><span className="text-sky-400">dr</span></Link>
           <div className="flex gap-6 text-sm text-slate-500">
             <Link href="/learn" className="hover:text-slate-200">Learn</Link>
             <Link href="/practice" className="hover:text-slate-200">Practice</Link>
@@ -298,7 +298,7 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-surface">
       <nav className="flex items-center justify-between px-8 py-4 border-b border-surface-border/50">
-        <Link href="/" className="font-mono font-bold text-brand text-base">swift<span className="text-slate-200">keys</span></Link>
+        <Link href="/" className="font-mono font-bold text-base"><span className="text-brand">typ</span><span className="text-sky-400">dr</span></Link>
         <div className="flex gap-6 text-sm text-slate-500">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>

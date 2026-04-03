@@ -85,8 +85,8 @@ export default function LearnPage() {
     <div className="min-h-screen bg-surface">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-4 border-b border-surface-border/50">
-        <Link href="/" className="font-mono font-bold text-brand text-base tracking-tight">
-          swift<span className="text-slate-200">keys</span>
+        <Link href="/" className="font-mono font-bold text-base tracking-tight">
+          <span className="text-brand">typ</span><span className="text-sky-400">dr</span>
         </Link>
         <AuthButtons />
         <div className="flex items-center gap-6 text-sm text-slate-500">

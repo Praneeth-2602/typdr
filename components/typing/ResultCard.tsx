@@ -330,7 +330,7 @@ export function ResultCard({
 
             <div className="mb-5 flex items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="font-mono text-[11px] uppercase tracking-[0.24em] text-slate-500 mb-3 lg:mb-2">Swiftkeys score</div>
+                <div className="font-mono text-[11px] uppercase tracking-[0.24em] text-slate-500 mb-3 lg:mb-2">typdr score</div>
                 <div className="flex items-center gap-4 lg:gap-3">
                   {/* WPM ring */}
                   <div className="relative grid h-28 w-28 lg:h-24 lg:w-24 place-items-center rounded-full border border-brand/20 bg-surface/20 shrink-0">

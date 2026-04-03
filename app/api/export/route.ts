@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": `attachment; filename="swiftkeys-sessions-${Date.now()}.csv"`,
+        "Content-Disposition": `attachment; filename="typdr-sessions-${Date.now()}.csv"`,
       },
     });
   } catch (err) {

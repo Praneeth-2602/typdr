@@ -42,8 +42,8 @@ function SignInInner() {
     <div className="min-h-screen bg-surface flex items-center justify-center px-6">
       <div className="w-full max-w-md rounded-2xl border border-surface-border bg-surface-secondary p-8 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
         <div className="mb-6">
-          <Link href="/" className="font-mono font-bold text-brand text-base tracking-tight">
-            swift<span className="text-slate-200">keys</span>
+          <Link href="/" className="font-mono font-bold text-base tracking-tight">
+            <span className="text-brand">typ</span><span className="text-sky-400">dr</span>
           </Link>
         </div>
 
