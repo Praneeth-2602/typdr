@@ -1,0 +1,456 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .root {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--color-text-primary);
+    padding: 2rem 1.5rem;
+    max-width: 680px;
+  }
+
+  .hero-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .hero-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--color-text-primary);
+    margin-bottom: 8px;
+  }
+
+  .hero-sub {
+    font-size: 15px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    max-width: 500px;
+    margin-bottom: 2rem;
+  }
+
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    margin: 2rem 0 0.75rem;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    padding-top: 1.25rem;
+  }
+
+  /* Pain points */
+  .pain-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 0.5rem;
+  }
+
+  .pain-card {
+    background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pain-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2.5px;
+    background: var(--accent);
+  }
+
+  .pain-card.p1 { --accent: #E24B4A; }
+  .pain-card.p2 { --accent: #EF9F27; }
+  .pain-card.p3 { --accent: #7F77DD; }
+  .pain-card.p4 { --accent: #1D9E75; }
+  .pain-card.p5 { --accent: #D4537E; }
+  .pain-card.p6 { --accent: #378ADD; }
+
+  .pain-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    margin-bottom: 4px;
+  }
+
+  .pain-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  .pain-desc {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Feature pillars */
+  .pillar-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .pillar {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: 10px;
+    padding: 16px 14px;
+  }
+
+  .pillar-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--pillar-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    font-size: 16px;
+  }
+
+  .pillar.teach { --pillar-bg: #E6F1FB; }
+  .pillar.practice { --pillar-bg: #E1F5EE; }
+  .pillar.analytics { --pillar-bg: #EEEDFE; }
+
+  .pillar-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 6px;
+  }
+
+  .pillar-feat {
+    font-size: 11.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+
+  .pillar-feat li {
+    list-style: none;
+    padding-left: 12px;
+    position: relative;
+    margin-bottom: 2px;
+  }
+
+  .pillar-feat li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--color-text-tertiary);
+    font-size: 10px;
+    top: 2px;
+  }
+
+  /* Differentiators row */
+  .diff-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+  }
+
+  .diff-chip {
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 100px;
+    border: 0.5px solid var(--color-border-secondary);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .diff-chip.highlight {
+    background: var(--color-background-success);
+    color: var(--color-text-success);
+    border-color: transparent;
+  }
+
+  /* Architecture diagram row */
+  .arch-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 0.75rem 0;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .arch-box {
+    flex: 1;
+    min-width: 100px;
+    background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .arch-box-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
+  }
+
+  .arch-box-sub {
+    font-size: 10.5px;
+    color: var(--color-text-tertiary);
+  }
+
+  .arch-arrow {
+    color: var(--color-text-tertiary);
+    font-size: 14px;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--color-background-info);
+    color: var(--color-text-info);
+    margin-left: 6px;
+    vertical-align: middle;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Comparison */
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    margin-top: 0.5rem;
+  }
+
+  .comp-table th {
+    text-align: left;
+    font-weight: 500;
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding: 6px 10px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .comp-table td {
+    padding: 8px 10px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+    color: var(--color-text-primary);
+    vertical-align: top;
+    line-height: 1.4;
+  }
+
+  .comp-table tr:last-child td { border-bottom: none; }
+
+  .check { color: #1D9E75; font-size: 13px; }
+  .cross { color: #E24B4A; font-size: 13px; }
+  .partial { color: #EF9F27; font-size: 13px; }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: var(--color-background-secondary);
+    color: var(--color-text-secondary);
+    margin-left: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+</style>
+
+<div class="root">
+
+  <div class="hero-label">Project Concept — SwiftKeys</div>
+  <div class="hero-title">A typing platform that<br>actually teaches you.</div>
+  <div class="hero-sub">Serverless, local-first. From finger placement for beginners to per-key analytics for speed freaks — with no backend to maintain.</div>
+
+  <!-- Pain points -->
+  <div class="section-title">What monkeytype gets wrong</div>
+  <div class="pain-grid">
+    <div class="pain-card p1">
+      <div class="pain-num">01</div>
+      <div class="pain-title">No structured learning path</div>
+      <div class="pain-desc">Assumes you can already touch type. No finger placement, no lessons, no hand overlay. Beginners are dropped in the deep end.</div>
+    </div>
+    <div class="pain-card p2">
+      <div class="pain-num">02</div>
+      <div class="pain-title">Inflated WPM scores</div>
+      <div class="pain-desc">Default 200-word list with no punctuation. Your "90 WPM" in Monkeytype might be 60 WPM in a real email.</div>
+    </div>
+    <div class="pain-card p3">
+      <div class="pain-num">03</div>
+      <div class="pain-title">No per-finger analytics</div>
+      <div class="pain-desc">You get total WPM and accuracy — but no breakdown of which fingers, keys, or bigrams are actually slowing you down.</div>
+    </div>
+    <div class="pain-card p4">
+      <div class="pain-num">04</div>
+      <div class="pain-title">No developer code mode</div>
+      <div class="pain-desc">Random "programming words" isn't IDE practice. Developers need real structured code with indentation, brackets, and syntax.</div>
+    </div>
+    <div class="pain-card p5">
+      <div class="pain-num">05</div>
+      <div class="pain-title">Reinforces bad habits</div>
+      <div class="pain-desc">Repeated speed tests don't fix bad technique. Hunt-and-peck users can game WPM without ever improving their form.</div>
+    </div>
+    <div class="pain-card p6">
+      <div class="pain-num">06</div>
+      <div class="pain-title">No guided improvement</div>
+      <div class="pain-desc">No AI-driven weak spot detection, no custom drill generation. You're on your own to figure out why you're plateauing.</div>
+    </div>
+  </div>
+
+  <!-- Feature pillars -->
+  <div class="section-title">Three pillars of SwiftKeys</div>
+  <div class="pillar-grid">
+    <div class="pillar teach">
+      <div class="pillar-icon teach">🎓</div>
+      <div class="pillar-name">Teach</div>
+      <ul class="pillar-feat">
+        <li>Interactive keyboard overlay</li>
+        <li>Finger placement lessons</li>
+        <li>Home row muscle memory drills</li>
+        <li>Progressive difficulty curve</li>
+        <li>Habit-correction mode</li>
+      </ul>
+    </div>
+    <div class="pillar practice">
+      <div class="pillar-icon practice">⌨️</div>
+      <div class="pillar-name">Practice</div>
+      <ul class="pillar-feat">
+        <li>Words, quotes, code, custom text</li>
+        <li>Real punctuation by default</li>
+        <li>IDE-style code snippets</li>
+        <li>Daily challenge streaks</li>
+        <li>Blind / zen / accuracy modes</li>
+      </ul>
+    </div>
+    <div class="pillar analytics">
+      <div class="pillar-icon analytics">📊</div>
+      <div class="pillar-name">Analytics</div>
+      <ul class="pillar-feat">
+        <li>Per-finger heatmap</li>
+        <li>Slowest bigrams detected</li>
+        <li>Real vs test WPM delta</li>
+        <li>Session consistency graph</li>
+        <li>AI-suggested weak spot drills</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Differentiators -->
+  <div class="section-title">Key differentiators</div>
+  <div class="diff-row">
+    <span class="diff-chip highlight">100% serverless</span>
+    <span class="diff-chip highlight">localStorage analytics</span>
+    <span class="diff-chip highlight">No account required</span>
+    <span class="diff-chip">AI drill generator</span>
+    <span class="diff-chip">Per-key heatmap</span>
+    <span class="diff-chip">Honest WPM score</span>
+    <span class="diff-chip">IDE code mode</span>
+    <span class="diff-chip">Beginner onboarding</span>
+    <span class="diff-chip">Open source</span>
+  </div>
+
+  <!-- Serverless architecture -->
+  <div class="section-title">Serverless architecture <span class="badge">zero infra</span></div>
+  <div class="arch-row">
+    <div class="arch-box">
+      <div class="arch-box-title">Vite + React</div>
+      <div class="arch-box-sub">Frontend SPA</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box">
+      <div class="arch-box-title">localStorage</div>
+      <div class="arch-box-sub">All analytics & history</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box">
+      <div class="arch-box-title">Claude API</div>
+      <div class="arch-box-sub">Drill generation</div>
+    </div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-box">
+      <div class="arch-box-title">Netlify / Vercel</div>
+      <div class="arch-box-sub">Static deploy</div>
+    </div>
+  </div>
+
+  <!-- Comparison table -->
+  <div class="section-title">SwiftKeys vs Monkeytype</div>
+  <table class="comp-table">
+    <thead>
+      <tr>
+        <th>Feature</th>
+        <th>Monkeytype</th>
+        <th>SwiftKeys</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Beginner lessons & finger placement</td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Per-finger / per-key analytics</td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Honest real-world WPM estimate</td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>IDE-style code practice</td>
+        <td><span class="cross">✗</span> <span class="tag">requested</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>AI-generated weakness drills</td>
+        <td><span class="cross">✗</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Serverless / no backend needed</td>
+        <td><span class="cross">✗</span> has backend</td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>Works offline (no account)</td>
+        <td><span class="partial">~</span> limited</td>
+        <td><span class="check">✓</span> fully offline</td>
+      </tr>
+      <tr>
+        <td>Speed test & WPM tracking</td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
