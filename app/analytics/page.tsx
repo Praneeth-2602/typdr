@@ -23,7 +23,7 @@ import { KeyboardHeatmap } from "@/components/keyboard/KeyboardHeatmap";
 import { PageLoader } from "@/components/PageLoader";
 import { AuthButtons } from "@/components/auth/AuthButtons";
 import { useAnalyticsStore } from "@/lib/stores/analytics";
-import type { LeaderboardEntry, StreakInfo, WeakKeyStat } from "@/lib/stores/analytics";
+import type { StreakInfo, WeakKeyStat } from "@/lib/stores/analytics";
 import { XpBar } from "@/components/gamification/XpBar";
 
 type HeatmapView = "accuracy" | "volume" | "finger";
@@ -77,7 +77,6 @@ export default function AnalyticsPage() {
   const getWeakestKeys  = useAnalyticsStore((s) => s.getWeakestKeys);
   const getSlowestBigrams = useAnalyticsStore((s) => s.getSlowestBigrams);
   const getKeyHeatmap   = useAnalyticsStore((s) => s.getKeyHeatmap);
-  const getLeaderboardEntries = useAnalyticsStore((s) => s.getLeaderboardEntries);
   const getStreakInfo   = useAnalyticsStore((s) => s.getStreakInfo);
   const getWpmHistory   = useAnalyticsStore((s) => s.getWpmHistory);
   const getStreakDays   = useAnalyticsStore((s) => s.getStreakDays);
@@ -86,6 +85,8 @@ export default function AnalyticsPage() {
 
   const [loadingDrill, setLoadingDrill] = useState(false);
   const [drillText, setDrillText]       = useState<string | null>(null);
+  const [drillProviderUsed, setDrillProviderUsed] = useState<"groq" | "gemini" | null>(null);
+  const [drillError, setDrillError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [heatmapView, setHeatmapView]   = useState<HeatmapView>("accuracy");
   const [exportingCsv, setExportingCsv] = useState(false);
@@ -95,15 +96,6 @@ export default function AnalyticsPage() {
   const [serverStreak, setServerStreak] = useState<StreakInfo | null>(null);
   const [serverXp, setServerXp] = useState<{ xp: number; level: number; xpForCurrentLevel: number; xpForNextLevel: number } | null>(null);
   const [serverCachedDrill, setServerCachedDrill] = useState<{ text: string; weakKeys: string[]; mode: string } | null>(null);
-  const [serverLeaderboard, setServerLeaderboard] = useState<Array<{
-    userId: string;
-    username: string;
-    bestScore: number;
-    avgWpm: number;
-    avgAccuracy: number;
-    testsCompleted: number;
-    updatedAt: string;
-  }> | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
   // Show loader while checking auth or loading server data
@@ -120,7 +112,6 @@ export default function AnalyticsPage() {
   const weakKeys    = getWeakestKeys(5);
   const slowBigrams = getSlowestBigrams(5);
   const heatmap     = getKeyHeatmap();
-  const leaderboard = getLeaderboardEntries(10);
   const streakInfo  = getStreakInfo();
   const wpmHistory  = getWpmHistory();
   const streakDays  = getStreakDays();
@@ -128,7 +119,6 @@ export default function AnalyticsPage() {
   const displayedWeakKeys = serverWeakKeys ?? weakKeyStats;
   const displayedStrongKeys = serverStrongKeys ?? strongKeyStats;
   const displayedStreak = serverStreak ?? streakInfo;
-  const displayedLeaderboard = serverLeaderboard;
 
   useEffect(() => {
     let active = true;
@@ -142,34 +132,29 @@ export default function AnalyticsPage() {
         setServerStreak(null);
         setServerXp(null);
         setServerCachedDrill(null);
-        setServerLeaderboard(null);
         setServerError(null);
         return;
       }
 
       setLoadingServerData(true);
       try {
-        const [statsRes, streakRes, leaderboardRes] = await Promise.all([
+        const [statsRes, streakRes] = await Promise.all([
           fetch("/api/user-stats"),
           fetch("/api/streak"),
-          fetch("/api/leaderboard?limit=10"),
         ]);
 
-        const [statsData, streakData, leaderboardData] = await Promise.all([
+        const [statsData, streakData] = await Promise.all([
           statsRes.json(),
           streakRes.json(),
-          leaderboardRes.json(),
         ]);
 
         if (!statsRes.ok) throw new Error(statsData.error ?? "Failed to load user stats.");
         if (!streakRes.ok) throw new Error(streakData.error ?? "Failed to load streak.");
-        if (!leaderboardRes.ok) throw new Error(leaderboardData.error ?? "Failed to load leaderboard.");
 
         if (!active) return;
         setServerWeakKeys(Array.isArray(statsData.weakKeys) ? statsData.weakKeys : []);
         setServerStrongKeys(Array.isArray(statsData.strongKeys) ? statsData.strongKeys : []);
         setServerStreak(streakData);
-        setServerLeaderboard(Array.isArray(leaderboardData) ? leaderboardData : []);
         setServerXp(
           typeof statsData.xp === "number"
             ? { xp: statsData.xp, level: statsData.level ?? 1, xpForCurrentLevel: statsData.xpForCurrentLevel ?? 0, xpForNextLevel: statsData.xpForNextLevel ?? 100 }
@@ -226,6 +211,8 @@ export default function AnalyticsPage() {
   }
 
   const handleGenerateDrill = async (drillMode: "words" | "sentences" | "code") => {
+    setDrillError(null);
+    setDrillProviderUsed(null);
     setLoadingDrill(true);
     setDrillText(null);
     try {
@@ -240,10 +227,17 @@ export default function AnalyticsPage() {
         }),
       });
       const data = await res.json();
-      if (data.drill) setDrillText(data.drill);
-      else alert(data.error ?? "Failed to generate drill");
-    } catch {
-      alert("Ensure GROQ_API_KEY or GEMINI_API_KEY is set in .env.local");
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to generate drill");
+      }
+      if (data.drill) {
+        setDrillText(data.drill);
+        setDrillProviderUsed(data.provider ?? null);
+      } else {
+        throw new Error("Empty drill response.");
+      }
+    } catch (error) {
+      setDrillError(error instanceof Error ? error.message : "Failed to generate drill");
     } finally {
       setLoadingDrill(false);
     }
@@ -279,6 +273,7 @@ export default function AnalyticsPage() {
           <div className="flex gap-6 text-sm text-slate-500">
             <Link href="/learn" className="hover:text-slate-200">Learn</Link>
             <Link href="/practice" className="hover:text-slate-200">Practice</Link>
+            <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
           </div>
         </nav>
         <div className="flex-1 flex items-center justify-center text-center px-6">
@@ -302,6 +297,7 @@ export default function AnalyticsPage() {
         <div className="flex gap-6 text-sm text-slate-500">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>
+          <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
           <AuthButtons />
         </div>
       </nav>
@@ -340,7 +336,7 @@ export default function AnalyticsPage() {
 
         {status !== "authenticated" && (
           <div className="mb-8 rounded-xl border border-amber-900/40 bg-amber-950/20 px-4 py-3 text-xs font-mono text-amber-300">
-            You are viewing local analytics only. Sign in to load synced weak keys, streaks, and the global leaderboard.
+            You are viewing local analytics only. Sign in to load synced weak keys and streaks.
           </div>
         )}
 
@@ -625,10 +621,22 @@ export default function AnalyticsPage() {
               </button>
             ))}
           </div>
+          {drillError && (
+            <div className="mb-3 rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs font-mono text-red-300">
+              {drillError}
+            </div>
+          )}
           {drillText && (
             <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
               className="p-4 bg-surface-tertiary border border-brand/20 rounded-xl">
-              <div className="text-xs font-mono text-brand mb-2 flex items-center gap-1.5"><Zap size={11} />Your custom drill</div>
+              <div className="text-xs font-mono text-brand mb-2 flex items-center gap-1.5">
+                <Zap size={11} />Your custom drill
+                {drillProviderUsed && (
+                  <span className="rounded-md border border-surface-border bg-surface-secondary px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                    via {drillProviderUsed}
+                  </span>
+                )}
+              </div>
               <pre className="font-mono text-sm text-slate-300 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">{drillText}</pre>
               <div className="mt-3 flex gap-2 flex-wrap">
                 <Link href={`/practice?drill=${encodeURIComponent(drillText)}`}
@@ -643,76 +651,6 @@ export default function AnalyticsPage() {
             </motion.div>
           )}
         </div>
-
-        {displayedLeaderboard && displayedLeaderboard.length > 0 && (
-          <div className="mb-8 p-6 bg-surface-secondary border border-surface-border rounded-xl">
-            <div className="flex items-center gap-2 font-mono text-xs text-slate-500 uppercase tracking-wide mb-4">
-              <Trophy size={12} />
-              Global leaderboard
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs font-mono">
-                <thead>
-                  <tr className="text-slate-500 border-b border-surface-border">
-                    <th className="text-left pb-2 pr-4">rank</th>
-                    <th className="text-left pb-2 px-4">user</th>
-                    <th className="text-right pb-2 px-4">score</th>
-                    <th className="text-right pb-2 px-4">avg wpm</th>
-                    <th className="text-right pb-2 pl-4">avg acc</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedLeaderboard.map((entry, index) => (
-                    <tr key={entry.userId} className="border-b border-surface-border/50 last:border-0">
-                      <td className="py-2 pr-4 text-brand font-bold">#{index + 1}</td>
-                      <td className="py-2 px-4 text-slate-300">{entry.username}</td>
-                      <td className="py-2 px-4 text-right text-brand font-bold">{entry.bestScore.toFixed(1)}</td>
-                      <td className="py-2 px-4 text-right text-slate-300">{entry.avgWpm.toFixed(1)}</td>
-                      <td className="py-2 pl-4 text-right text-slate-400">{entry.avgAccuracy.toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {leaderboard.length > 0 && (
-          <div className="mb-8 p-6 bg-surface-secondary border border-surface-border rounded-xl">
-            <div className="flex items-center gap-2 font-mono text-xs text-slate-500 uppercase tracking-wide mb-4">
-              <Trophy size={12} />
-              Personal leaderboard
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs font-mono">
-                <thead>
-                  <tr className="text-slate-500 border-b border-surface-border">
-                    <th className="text-left pb-2 pr-4">rank</th>
-                    <th className="text-left pb-2 px-4">date</th>
-                    <th className="text-left pb-2 px-4">mode</th>
-                    <th className="text-right pb-2 px-4">score</th>
-                    <th className="text-right pb-2 px-4">wpm</th>
-                    <th className="text-right pb-2 pl-4">acc</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leaderboard.map((entry: LeaderboardEntry, index) => (
-                    <tr key={entry.sessionId} className="border-b border-surface-border/50 last:border-0">
-                      <td className="py-2 pr-4 text-brand font-bold">#{index + 1}</td>
-                      <td className="py-2 px-4 text-slate-400">
-                        {new Date(entry.timestamp).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
-                      </td>
-                      <td className="py-2 px-4 text-slate-300 capitalize">{entry.mode}</td>
-                      <td className="py-2 px-4 text-right text-brand font-bold">{entry.score.toFixed(1)}</td>
-                      <td className="py-2 px-4 text-right text-slate-300">{entry.wpm}</td>
-                      <td className="py-2 pl-4 text-right text-slate-400">{entry.accuracy}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         {/* Recent sessions */}
         <div>

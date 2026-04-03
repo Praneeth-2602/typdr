@@ -92,6 +92,7 @@ export default function LearnPage() {
         <div className="flex items-center gap-6 text-sm text-slate-500">
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>
           <Link href="/analytics" className="hover:text-slate-200">Analytics</Link>
+          <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
         </div>
       </nav>
 

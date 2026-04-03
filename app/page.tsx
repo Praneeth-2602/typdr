@@ -50,6 +50,7 @@ export default function HomePage() {
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>
           <Link href="/analytics" className="hover:text-slate-200">Analytics</Link>
+          <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
           <AuthButtons />
           <Link
             href="/practice"

@@ -69,6 +69,13 @@ function PracticeInner() {
   const [result, setResult] = useState<SessionResult | null>(null);
   const [testKey, setTestKey] = useState(0);
   const [drillText, setDrillText] = useState<string | null>(drillParam || null);
+  const [drillProviderUsed, setDrillProviderUsed] = useState<"groq" | "gemini" | null>(null);
+  const [drillError, setDrillError] = useState<string | null>(null);
+  const [drillProviderStatus, setDrillProviderStatus] = useState<{
+    providersAvailable: { groq: boolean; gemini: boolean };
+    preferredProvider: "auto" | "groq" | "gemini";
+    hasAnyProvider: boolean;
+  } | null>(null);
   const [loadingDrill, setLoadingDrill] = useState(false);
   const [showLoadingAnalysis, setShowLoadingAnalysis] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -86,9 +93,30 @@ function PracticeInner() {
     if (drillParam) { setText(drillParam); setDrillText(drillParam); setMode("words"); }
   }, [drillParam]);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/drill", { method: "GET", cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!active) return;
+        setDrillProviderStatus(data);
+      } catch {
+        // Keep UI functional even if status probe fails.
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const newTest = useCallback((newText?: string) => {
     setText(newText ?? (drillText ?? getRandomText(mode, wordCount, duration)));
     setResult(null);
+    setDrillError(null);
+    setDrillProviderUsed(null);
     setShowLoadingAnalysis(false);
     setSyncedFeedback(null);
     setSyncedWeakKeys(null);
@@ -107,6 +135,8 @@ function PracticeInner() {
 
   const handleRetrySame = useCallback(() => {
     setResult(null);
+    setDrillError(null);
+    setDrillProviderUsed(null);
     setShowLoadingAnalysis(false);
     setSyncedFeedback(null);
     setSyncedWeakKeys(null);
@@ -182,6 +212,8 @@ function PracticeInner() {
   };
 
   const handleGenerateDrill = async () => {
+    setDrillError(null);
+    setDrillProviderUsed(null);
     setLoadingDrill(true);
     setDrillText(null);
     try {
@@ -196,10 +228,28 @@ function PracticeInner() {
         }),
       });
       const data = await res.json();
-      if (data.drill) { setDrillText(data.drill); newTest(data.drill); }
-      else alert(data.error ?? "Failed to generate drill");
-    } catch {
-      alert("Check your GROQ_API_KEY or GEMINI_API_KEY in .env.local.");
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to generate drill");
+      }
+
+      if (data.drill) {
+        setDrillProviderUsed(data.provider ?? null);
+        setDrillProviderStatus((prev) =>
+          prev
+            ? prev
+            : {
+                providersAvailable: data.providersAvailable ?? { groq: false, gemini: false },
+                preferredProvider: data.preferredProvider ?? "auto",
+                hasAnyProvider: Boolean(data.providersAvailable?.groq || data.providersAvailable?.gemini),
+              }
+        );
+        setDrillText(data.drill);
+        newTest(data.drill);
+      } else {
+        throw new Error("Empty drill response.");
+      }
+    } catch (error) {
+      setDrillError(error instanceof Error ? error.message : "Failed to generate drill.");
     } finally {
       setLoadingDrill(false);
     }
@@ -275,6 +325,7 @@ function PracticeInner() {
         <div className="flex items-center gap-6 text-sm text-slate-500">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/analytics" className="hover:text-slate-200">Analytics</Link>
+          <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
           <AuthButtons />
         </div>
       </nav>
@@ -285,6 +336,12 @@ function PracticeInner() {
           {status !== "authenticated" && (
             <div className="rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-2 text-xs font-mono text-amber-300">
               Sign in to sync your stats, streak, and leaderboard progress to MongoDB.
+            </div>
+          )}
+          {drillProviderStatus && (
+            <div className="rounded-lg border border-surface-border bg-surface-secondary px-4 py-2 text-xs font-mono text-slate-400">
+              AI providers: {drillProviderStatus.providersAvailable.groq ? "Groq" : "Groq (missing key)"} · {drillProviderStatus.providersAvailable.gemini ? "Gemini" : "Gemini (missing key)"}
+              <span className="ml-2 text-slate-500">pref: {drillProviderStatus.preferredProvider}</span>
             </div>
           )}
           {/* Daily challenge banner */}
@@ -364,8 +421,19 @@ function PracticeInner() {
         {drillText && (
           <div className="w-full max-w-5xl mb-4 flex items-center gap-2 px-4 py-2.5 bg-surface-tertiary border border-brand/20 rounded-xl text-xs font-mono text-brand">
             <Zap size={12} />AI drill — targeting your weak keys
+            {drillProviderUsed && (
+              <span className="rounded-md border border-surface-border bg-surface-secondary px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                via {drillProviderUsed}
+              </span>
+            )}
             <button onClick={() => { setDrillText(null); newTest(getRandomText(mode, wordCount, duration)); }}
               className="ml-auto text-slate-500 hover:text-slate-300">✕ clear drill</button>
+          </div>
+        )}
+
+        {drillError && (
+          <div className="w-full max-w-5xl mb-4 rounded-xl border border-red-900/40 bg-red-950/20 px-4 py-3 text-xs font-mono text-red-300">
+            {drillError}
           </div>
         )}
 
@@ -413,7 +481,7 @@ function PracticeInner() {
         {!result && (
           <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
             {avgWpm > 0 && !drillText && (
-              <button onClick={handleGenerateDrill} disabled={loadingDrill}
+              <button onClick={handleGenerateDrill} disabled={loadingDrill || drillProviderStatus?.hasAnyProvider === false}
                 className="flex items-center gap-1.5 px-4 py-2 border border-surface-border text-slate-500 font-mono text-xs rounded-lg hover:bg-surface-hover hover:text-slate-300 disabled:opacity-40 transition-all">
                 <Zap size={11} />{loadingDrill ? "Generating…" : "AI drill for weak keys"}
               </button>
