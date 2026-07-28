@@ -11,6 +11,8 @@
 // worker at a separate Node.js service and share the same Upstash queue.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { env } from "@/lib/env";
+
 export type JobType =
   | "generate-drill-cache"   // pre-warm a drill for a user after session
   | "update-leaderboard"     // async leaderboard rank recalculation
@@ -50,8 +52,8 @@ async function runInProcessWorker() {
 export async function enqueueJob<T>(type: JobType, payload: T): Promise<void> {
   const job: Job<T> = { type, payload, enqueuedAt: Date.now() };
 
-  const upstashUrl   = process.env.UPSTASH_URL;
-  const upstashToken = process.env.UPSTASH_TOKEN;
+  const upstashUrl = env.UPSTASH_URL;
+  const upstashToken = env.UPSTASH_TOKEN;
 
   if (upstashUrl && upstashToken) {
     // Push to Upstash Redis list

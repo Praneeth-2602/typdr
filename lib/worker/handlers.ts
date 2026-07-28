@@ -8,6 +8,7 @@
 
 import type { Job, JobType } from "@/lib/queue";
 import { getCollections } from "@/lib/server/db";
+import { env } from "@/lib/env";
 
 // ── Handler registry ───────────────────────────────────────────────────────
 
@@ -41,8 +42,8 @@ interface GenerateDrillCachePayload {
 async function handleGenerateDrillCache(raw: unknown): Promise<void> {
   const p = raw as GenerateDrillCachePayload;
 
-  const groqKey   = process.env.GROQ_API_KEY   ?? "";
-  const geminiKey = process.env.GEMINI_API_KEY  ?? "";
+  const groqKey   = env.GROQ_API_KEY;
+  const geminiKey = env.GEMINI_API_KEY;
 
   if (!groqKey && !geminiKey) return; // nothing to do without an LLM key
 

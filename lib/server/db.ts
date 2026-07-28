@@ -11,6 +11,7 @@
 import { MongoClient, type Collection, type Db } from "mongodb";
 import type { KeystrokeEvent, SessionResult, StreakInfo, WeakKeyStat } from "@/lib/stores/analytics";
 import { generateCoachFeedback } from "@/lib/utils/feedback";
+import { env } from "@/lib/env";
 
 interface MongoKeyStat {
   attempts: number;
@@ -91,6 +92,37 @@ export interface SessionDocument {
   createdAt: Date;
 }
 
+export interface ApiKeyDocument {
+  keyHash: string;
+  keyPrefix: string;
+  userId: string;
+  username: string;
+  name: string;
+  createdAt: Date;
+  lastUsedAt?: Date;
+  revoked?: boolean;
+}
+
+export interface SeasonDocument {
+  label: string;
+  name: string;
+  startAt: Date;
+  endAt: Date;
+  archived: boolean;
+  archivedAt?: Date;
+  createdAt: Date;
+}
+
+export interface SeasonScoreDocument {
+  seasonLabel: string;
+  userId: string;
+  username: string;
+  points: number;
+  sessionsCounted: number;
+  dailyCounts: Record<string, number>;
+  updatedAt: Date;
+}
+
 export interface SubmitTestPayload {
   userId: string;
   username?: string;
@@ -114,16 +146,8 @@ declare global {
 }
 
 function getMongoConfig() {
-  const uri = process.env.MONGODB_URI;
-  const dbName = process.env.MONGODB_DB || "swiftkeys";
-
-  if (!uri) {
-    throw new Error(
-      "Missing MONGODB_URI environment variable. " +
-        "Add it to .env.local (locally) or your hosting provider's environment settings. " +
-        "Get a free MongoDB Atlas cluster at https://cloud.mongodb.com"
-    );
-  }
+  const uri = env.MONGODB_URI;
+  const dbName = env.MONGODB_DB || "swiftkeys";
 
   return { uri, dbName };
 }
@@ -145,17 +169,61 @@ export async function getMongoDb(): Promise<Db> {
   return client.db(dbName);
 }
 
+export interface RaceRoomDocument {
+  code: string;
+  text: string;
+  status: "waiting" | "countdown" | "racing" | "finished";
+  players: {
+    userId: string;
+    username: string;
+    progress: number;
+    wpm: number;
+    accuracy: number;
+    finished: boolean;
+    finishedAt?: number;
+  }[];
+  hostId: string;
+  countdownEndsAt?: number;
+  createdAt: number;
+  expiresAt: number;
+}
+
 export async function getCollections() {
   const db = await getMongoDb();
 
-  const sessions    = db.collection<SessionDocument>("test_sessions");
-  const userStats   = db.collection<UserStatsDocument>("user_stats");
-  const streaks     = db.collection<UserStreakDocument>("user_streaks");
-  const leaderboard = db.collection<LeaderboardDocument>("leaderboard");
+  const sessions     = db.collection<SessionDocument>("test_sessions");
+  const userStats    = db.collection<UserStatsDocument>("user_stats");
+  const streaks      = db.collection<UserStreakDocument>("user_streaks");
+  const leaderboard  = db.collection<LeaderboardDocument>("leaderboard");
+  const raceRooms    = db.collection<RaceRoomDocument>("raceRooms");
+  const seasons      = db.collection<SeasonDocument>("seasons");
+  const seasonScores = db.collection<SeasonScoreDocument>("season_scores");
+  const apiKeys      = db.collection<ApiKeyDocument>("api_keys");
+  const certificates = db.collection("certificates");
 
-  await ensureIndexes(sessions, userStats, streaks, leaderboard);
+  await ensureIndexes(
+    sessions,
+    userStats,
+    streaks,
+    leaderboard,
+    raceRooms,
+    seasons,
+    seasonScores,
+    apiKeys
+  );
 
-  return { db, sessions, userStats, streaks, leaderboard };
+  return {
+    db,
+    sessions,
+    userStats,
+    streaks,
+    leaderboard,
+    raceRooms,
+    seasons,
+    seasonScores,
+    apiKeys,
+    certificates,
+  };
 }
 
 // Only run index creation once per process
@@ -165,7 +233,11 @@ async function ensureIndexes(
   sessions:     Collection<SessionDocument>,
   userStats:    Collection<UserStatsDocument>,
   streaks:      Collection<UserStreakDocument>,
-  leaderboard:  Collection<LeaderboardDocument>
+  leaderboard:  Collection<LeaderboardDocument>,
+  raceRooms?:   Collection<RaceRoomDocument>,
+  seasons?:     Collection<SeasonDocument>,
+  seasonScores?: Collection<SeasonScoreDocument>,
+  apiKeys?:     Collection<ApiKeyDocument>
 ) {
   if (indexesReady) return;
 
@@ -175,6 +247,28 @@ async function ensureIndexes(
     streaks.createIndex({ userId: 1 }, { unique: true }),
     leaderboard.createIndex({ bestScore: -1, avgWpm: -1 }),
     leaderboard.createIndex({ userId: 1 }, { unique: true }),
+    ...(raceRooms
+      ? [
+          raceRooms.createIndex({ code: 1 }, { unique: true }),
+          raceRooms.createIndex({ expiresAt: 1 }),
+        ]
+      : []),
+    ...(seasons ? [seasons.createIndex({ label: 1 }, { unique: true })] : []),
+    ...(seasonScores
+      ? [
+          seasonScores.createIndex(
+            { seasonLabel: 1, userId: 1 },
+            { unique: true }
+          ),
+          seasonScores.createIndex({ seasonLabel: 1, points: -1 }),
+        ]
+      : []),
+    ...(apiKeys
+      ? [
+          apiKeys.createIndex({ keyHash: 1 }, { unique: true }),
+          apiKeys.createIndex({ userId: 1 }),
+        ]
+      : []),
   ]);
 
   indexesReady = true;

@@ -1,8 +1,9 @@
-import { getServerSession, type NextAuthOptions } from "next-auth";
+import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { getServerSession, type NextAuthOptions } from "next-auth";
 
 // next-auth v4 reads NEXTAUTH_SECRET. AUTH_SECRET is Auth.js v5 convention.
-// We read both so the app works whichever the developer sets.
 const secret =
   process.env.NEXTAUTH_SECRET ??
   process.env.AUTH_SECRET ??
@@ -13,8 +14,7 @@ const secret =
           "Set it in .env.local (locally) or in your hosting provider's environment settings."
       );
     }
-    // Dev-only fallback so `next dev` works without configuration.
-    return "swiftkeys-dev-secret-change-in-production";
+    return "typdr-dev-secret-change-in-production";
   })();
 
 const sharedPassword = process.env.SWIFTKEYS_SHARED_PASSWORD?.trim();
@@ -29,7 +29,60 @@ function usernameToId(username: string) {
       .toLowerCase()
       .trim()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "swiftkeys-user"
+      .replace(/^-+|-+$/g, "") || "typdr-user"
+  );
+}
+
+const providers: NextAuthOptions["providers"] = [
+  Credentials({
+    name: "Username and Password",
+    credentials: {
+      username: {
+        label: "Username",
+        type: "text",
+        placeholder: "typepilot",
+      },
+      password: {
+        label: "Password",
+        type: "password",
+        placeholder: "At least 6 characters",
+      },
+    },
+    authorize(credentials) {
+      const rawUsername =
+        typeof credentials?.username === "string" ? credentials.username : "";
+      const rawPassword =
+        typeof credentials?.password === "string" ? credentials.password : "";
+      const username = normalizeUsername(rawUsername);
+      const password = rawPassword.trim();
+
+      if (!username || username.length < 3) return null;
+      if (!password || password.length < 6) return null;
+      if (sharedPassword && password !== sharedPassword) return null;
+
+      return {
+        id: usernameToId(username),
+        name: username,
+      };
+    },
+  }),
+];
+
+if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) {
+  providers.push(
+    GitHub({
+      clientId: process.env.GITHUB_ID,
+      clientSecret: process.env.GITHUB_SECRET,
+    })
+  );
+}
+
+if (process.env.GOOGLE_ID && process.env.GOOGLE_SECRET) {
+  providers.push(
+    Google({
+      clientId: process.env.GOOGLE_ID,
+      clientSecret: process.env.GOOGLE_SECRET,
+    })
   );
 }
 
@@ -37,51 +90,24 @@ export const authOptions: NextAuthOptions = {
   secret,
   session: {
     strategy: "jwt",
-    // 30-day sessions so users don't get logged out constantly
     maxAge: 30 * 24 * 60 * 60,
   },
-  providers: [
-    Credentials({
-      name: "Username and Password",
-      credentials: {
-        username: {
-          label: "Username",
-          type: "text",
-          placeholder: "typepilot",
-        },
-        password: {
-          label: "Password",
-          type: "password",
-          placeholder: "At least 6 characters",
-        },
-      },
-      authorize(credentials) {
-        const rawUsername =
-          typeof credentials?.username === "string" ? credentials.username : "";
-        const rawPassword =
-          typeof credentials?.password === "string" ? credentials.password : "";
-        const username = normalizeUsername(rawUsername);
-        const password = rawPassword.trim();
-
-        if (!username || username.length < 3) return null;
-        if (!password || password.length < 6) return null;
-        if (sharedPassword && password !== sharedPassword) return null;
-
-        return {
-          id: usernameToId(username),
-          name: username,
-        };
-      },
-    }),
-  ],
+  providers,
   pages: {
     signIn: "/signin",
   },
   callbacks: {
-    jwt({ token, user }) {
+    jwt({ token, user, account }) {
       if (user) {
-        token.userId = user.id;
-        token.username = user.name ?? undefined;
+        // OAuth users: stable id from provider account; credentials: our username id
+        const oauthId =
+          account?.provider && account.provider !== "credentials" && account.providerAccountId
+            ? `${account.provider}:${account.providerAccountId}`
+            : null;
+        token.userId = oauthId ?? user.id;
+        token.username =
+          user.name ??
+          (typeof user.email === "string" ? user.email.split("@")[0] : undefined);
       }
       return token;
     },

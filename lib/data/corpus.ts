@@ -321,6 +321,10 @@ export const PANGRAMS = [
   "the jay, pig, fox, zebra and my wolves quack",
 ];
 
+/**
+ * @deprecated Use CURRICULUM from `@/lib/data/curriculum` instead.
+ * Kept for backward compatibility with any external references to the old 5-lesson shape.
+ */
 export const LESSONS = [
   {
     id: "home-row",
@@ -418,29 +422,32 @@ function seededRand(seed: number): () => number {
  * Uses a seeded RNG so the text is deterministic per day.
  */
 export function getDailyChallenge(): { text: string; label: string } {
-  const today = new Date();
+  // Use UTC date so every user worldwide gets the same challenge regardless of timezone.
+  const now = new Date();
   const seed =
-    today.getFullYear() * 10000 +
-    (today.getMonth() + 1) * 100 +
-    today.getDate();
+    now.getUTCFullYear() * 10000 +
+    (now.getUTCMonth() + 1) * 100 +
+    now.getUTCDate();
   const rand = seededRand(seed);
 
   const pool = [...QUOTES, ...PANGRAMS.map((p) => ({ text: p, author: "Classic" }))];
   const pick = pool[Math.floor(rand() * pool.length)];
   return {
     text: "text" in pick ? pick.text : String(pick),
-    label: `Daily challenge — ${today.toLocaleDateString("en-IN", { weekday: "long", month: "long", day: "numeric" })}`,
+    label: `Daily challenge — ${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" })} (UTC)`,
   };
 }
 
 /**
  * Generate a random word test.
  * v3 change: punctuation placement is randomised (not fixed every 7/15 words).
+ * Optional `wordList` overrides COMMON_WORDS (language packs / custom packs).
  */
-export function generateWordTest(count = 40): string {
+export function generateWordTest(count = 40, wordList?: string[]): string {
+  const pool = wordList && wordList.length > 0 ? wordList : COMMON_WORDS;
   const words: string[] = [];
   for (let i = 0; i < count; i++) {
-    words.push(COMMON_WORDS[Math.floor(Math.random() * COMMON_WORDS.length)]);
+    words.push(pool[Math.floor(Math.random() * pool.length)]);
   }
   return words
     .map((w, i) => {

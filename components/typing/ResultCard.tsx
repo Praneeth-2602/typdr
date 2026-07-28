@@ -17,6 +17,9 @@ import {
   Activity,
   Crosshair,
   WandSparkles,
+  Award,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
 import clsx from "clsx";
 import type { SessionResult, StreakInfo, WeakKeyStat } from "@/lib/stores/analytics";
@@ -24,6 +27,7 @@ import { useAnalyticsStore } from "@/lib/stores/analytics";
 import { getSessionWeakKeys } from "@/lib/utils/feedback";
 import type { XpGainResult } from "@/lib/server/db";
 import { XpResultPanel } from "@/components/gamification/XpResultPanel";
+import { useToast } from "@/components/ui/Toast";
 
 interface ResultCardProps {
   result: SessionResult;
@@ -227,6 +231,7 @@ export function ResultCard({
   syncedStreak,
   syncedXp,
 }: ResultCardProps) {
+  const { toast } = useToast();
   const trend = useAnalyticsStore((s) => s.getAccuracyTrend());
   const sessions = useAnalyticsStore((s) => s.sessions);
   const streak = useAnalyticsStore((s) => s.getStreakInfo());
@@ -248,6 +253,63 @@ export function ResultCard({
   const displayStreak = syncedStreak ?? streak;
   const [activeMetric, setActiveMetric] = useState(focusMetrics[0].id);
   const activeFocus = focusMetrics.find((m) => m.id === activeMetric) ?? focusMetrics[0];
+  const [certLoading, setCertLoading] = useState(false);
+  const [certUrl, setCertUrl] = useState<string | null>(null);
+  const [certError, setCertError] = useState<string | null>(null);
+  const canCertify = result.wpm >= 60 && result.accuracy >= 90;
+
+  const sharePath =
+    `/share?wpm=${encodeURIComponent(String(result.wpm))}` +
+    `&accuracy=${encodeURIComponent(String(result.accuracy))}` +
+    `&mode=${encodeURIComponent(String(result.mode))}`;
+
+  async function handleShareScore() {
+    const shareText = `I just typed ${result.wpm} WPM on typdr (${result.accuracy}% accuracy).`;
+    const fullUrl =
+      typeof window !== "undefined" ? `${window.location.origin}${sharePath}` : sharePath;
+
+    try {
+      // Prefer native share when available (iOS/Android)
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ title: "typdr", text: shareText, url: fullUrl });
+        toast("Shared successfully.", "success");
+        return;
+      }
+    } catch {
+      // fall through to copy
+    }
+
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      toast("Share link copied.", "success");
+    } catch {
+      toast("Could not copy share link.", "error");
+    }
+  }
+
+  async function generateCertificate() {
+    if (!canCertify || certLoading) return;
+    setCertLoading(true);
+    setCertError(null);
+    try {
+      const res = await fetch("/api/cert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wpm: result.wpm,
+          accuracy: result.accuracy,
+          mode: result.mode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to generate certificate.");
+      setCertUrl(data.url as string);
+    } catch (err) {
+      setCertError(err instanceof Error ? err.message : "Certificate failed.");
+    } finally {
+      setCertLoading(false);
+    }
+  }
 
   const spotlightX = useMotionValue(50);
   const spotlightY = useMotionValue(50);
@@ -582,6 +644,34 @@ export function ResultCard({
                     <Zap size={14} />AI drill for weak keys
                   </button>
                 )}
+                {canCertify && !certUrl && (
+                  <button
+                    onClick={generateCertificate}
+                    disabled={certLoading}
+                    className="flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/10 px-6 py-2.5 lg:px-5 lg:py-2 font-mono text-sm text-brand transition-all hover:bg-brand/15 hover:-translate-y-0.5 disabled:opacity-60"
+                  >
+                    {certLoading ? <Loader2 size={14} className="animate-spin" /> : <Award size={14} />}
+                    Generate certificate
+                  </button>
+                )}
+                {certUrl && (
+                  <a
+                    href={certUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 rounded-lg border border-correct/30 bg-green-950/20 px-6 py-2.5 lg:px-5 lg:py-2 font-mono text-sm text-correct transition-all hover:bg-green-950/30 hover:-translate-y-0.5"
+                  >
+                    <ExternalLink size={14} />
+                    View certificate
+                  </a>
+                )}
+                <button
+                  onClick={handleShareScore}
+                  className="flex items-center gap-2 rounded-lg border border-surface-border px-6 py-2.5 lg:px-5 lg:py-2 font-mono text-sm text-slate-300 transition-all hover:bg-surface-hover hover:-translate-y-0.5"
+                >
+                  <ExternalLink size={14} />
+                  Share score
+                </button>
               </div>
               {onNewSession && (
                 <button onClick={onNewSession}
@@ -595,6 +685,9 @@ export function ResultCard({
                 </button>
               )}
             </div>
+            {certError && (
+              <p className="mt-3 text-center font-mono text-xs text-amber-300">{certError}</p>
+            )}
           </motion.section>
         </div>
       </div>

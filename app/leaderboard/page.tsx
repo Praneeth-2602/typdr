@@ -7,6 +7,8 @@ import { AuthButtons } from "@/components/auth/AuthButtons";
 import { PageLoader } from "@/components/PageLoader";
 import { useSession } from "next-auth/react";
 import { Crown, Medal, RefreshCw, Trophy, Users, Activity, Target } from "lucide-react";
+import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
+import { SeasonBanner } from "@/components/seasons/SeasonBanner";
 
 type LeaderboardRow = {
   userId: string;
@@ -35,7 +37,7 @@ function rankBadge(index: number) {
 }
 
 export default function LeaderboardPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +66,8 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     fetchLeaderboard();
+    const id = setInterval(() => fetchLeaderboard(true), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const sortedRows = useMemo(() => {
@@ -75,6 +79,10 @@ export default function LeaderboardPage() {
     });
     return copy;
   }, [rows, sortBy]);
+
+  const currentUserId = session?.user?.id;
+  const myIndex = sortedRows.findIndex((r) => r.userId === currentUserId);
+  const myRow = myIndex >= 0 ? sortedRows[myIndex] : null;
 
   const totalPlayers = sortedRows.length;
   const avgOfTop10Wpm =
@@ -96,12 +104,18 @@ export default function LeaderboardPage() {
         <div className="flex items-center gap-6 text-sm text-slate-500">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>
+          <Link href="/race" className="hover:text-slate-200">Race</Link>
           <Link href="/analytics" className="hover:text-slate-200">Analytics</Link>
+          <ThemeSwitcher />
           <AuthButtons />
         </div>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="mb-6">
+          <SeasonBanner />
+        </div>
+
         <div className="flex items-center justify-between gap-3 flex-wrap mb-8">
           <div>
             <h1 className="font-mono font-bold text-2xl text-slate-100 mb-1">Global leaderboard</h1>
@@ -199,19 +213,40 @@ export default function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedRows.map((row, index) => (
-                    <tr key={row.userId} className="border-b border-surface-border/50 last:border-0">
+                  {sortedRows.slice(0, 50).map((row, index) => {
+                    const isMe = row.userId === currentUserId;
+                    return (
+                    <tr
+                      key={row.userId}
+                      className={`border-b border-surface-border/50 last:border-0 ${
+                        isMe ? "bg-brand/10" : ""
+                      }`}
+                    >
                       <td className="py-2 pr-4">{rankBadge(index)}</td>
-                      <td className="py-2 px-4 text-slate-300">{row.username}</td>
+                      <td className="py-2 px-4 text-slate-300">
+                        {row.username}
+                        {isMe && (
+                          <span className="ml-2 text-[10px] uppercase tracking-wide text-brand">you</span>
+                        )}
+                      </td>
                       <td className="py-2 px-4 text-right text-brand font-bold">{row.bestScore.toFixed(1)}</td>
                       <td className="py-2 px-4 text-right text-slate-300">{row.avgWpm.toFixed(1)}</td>
                       <td className="py-2 px-4 text-right text-slate-400">{row.avgAccuracy.toFixed(1)}%</td>
                       <td className="py-2 pl-4 text-right text-slate-500">{row.testsCompleted}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {myRow && myIndex >= 50 && (
+              <div className="mt-3 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 font-mono text-xs text-slate-300">
+                Your rank: <span className="text-brand font-bold">#{myIndex + 1}</span>
+                {" · "}
+                {myRow.bestScore.toFixed(1)} score · {myRow.avgWpm.toFixed(1)} wpm · {myRow.avgAccuracy.toFixed(1)}%
+              </div>
+            )}
           </div>
         )}
       </div>

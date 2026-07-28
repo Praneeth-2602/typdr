@@ -106,9 +106,37 @@ function SignInInner() {
               {submitting ? "Continuing…" : "Continue →"}
             </button>
 
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-surface-border" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-surface-secondary px-3 font-mono text-[10px] uppercase tracking-widest text-slate-600">
+                  or
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <button
+                type="button"
+                onClick={() => signIn("github", { callbackUrl })}
+                className="w-full rounded-xl border border-surface-border bg-surface px-4 py-3 font-mono text-sm text-slate-200 hover:bg-surface-hover transition-all"
+              >
+                Continue with GitHub
+              </button>
+              <button
+                type="button"
+                onClick={() => signIn("google", { callbackUrl })}
+                className="w-full rounded-xl border border-surface-border bg-surface px-4 py-3 font-mono text-sm text-slate-200 hover:bg-surface-hover transition-all"
+              >
+                Continue with Google
+              </button>
+            </div>
+
             <p className="text-xs text-slate-600 font-mono text-center">
               Username must be at least 3 characters. Password must be at least 6 characters.
-              Same form for both returning and new users.
+              OAuth needs GITHUB_* / GOOGLE_* env vars configured.
             </p>
           </form>
         )}

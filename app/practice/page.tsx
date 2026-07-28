@@ -1,18 +1,20 @@
 "use client";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// practice/page.tsx  v3
+// practice/page.tsx  v4
 //
-// v3 changes:
-//  + Suspense boundary wrapping useSearchParams (required in Next.js 14 App Router)
-//  + Daily challenge mode added
-//  + Pangram warm-up mode added
-//  + Mode selector now includes "daily" and "pangram"
+// v4 changes:
+//  + Language pack selector (en / hi / es / de / ja)
+//  + Keyboard layout switcher (localStorage typdr-layout)
+//  + Custom word packs + built-in programming pack
+//  + /practice?pack=base64urlencoded word list support
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Suspense, useState, useCallback, useEffect, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Shuffle, Calendar, AlignLeft } from "lucide-react";
+import { Zap, Shuffle, Calendar, AlignLeft, Monitor, Keyboard, Package } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
+import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -24,26 +26,87 @@ import { AuthButtons } from "@/components/auth/AuthButtons";
 import {
   QUOTES, CODE_SNIPPETS, PANGRAMS, generateWordTest, getDailyChallenge,
 } from "@/lib/data/corpus";
+import { LANGUAGE_PACKS, getLanguagePack, LANG_STORAGE_KEY } from "@/lib/data/languages";
+import {
+  LAYOUTS, LAYOUT_LABELS, LAYOUT_STORAGE_KEY, loadSavedLayout, type Layout,
+} from "@/lib/data/keyboard";
+import { PROGRAMMING_WORDS } from "@/lib/data/packs/programming";
 import { useAnalyticsStore } from "@/lib/stores/analytics";
 import type { SessionResult, StreakInfo, WeakKeyStat } from "@/lib/stores/analytics";
 
-type Mode = "words" | "time" | "quote" | "code" | "custom" | "daily" | "pangram";
+type Mode = "words" | "time" | "quote" | "code" | "custom" | "daily" | "pangram" | "pack";
 type Duration = 15 | 30 | 60 | 120 | 0;
 type WordCount = 10 | 25 | 50 | 100;
+
+interface CustomPack {
+  id: string;
+  name: string;
+  words: string[];
+  createdAt: number;
+}
+
+const CUSTOM_PACKS_KEY = "typdr-custom-packs";
+
+function parseWordList(raw: string): string[] {
+  return raw
+    .split(/[\n,]+/)
+    .map((w) => w.trim())
+    .filter(Boolean);
+}
+
+function loadCustomPacks(): CustomPack[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_PACKS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomPacks(packs: CustomPack[]) {
+  localStorage.setItem(CUSTOM_PACKS_KEY, JSON.stringify(packs));
+}
+
+function decodePackParam(encoded: string): string[] | null {
+  try {
+    const decoded = decodeURIComponent(encoded);
+    // Support standard base64 and base64url
+    const normalized = decoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const text = atob(padded);
+    const words = parseWordList(text);
+    return words.length > 0 ? words : null;
+  } catch {
+    try {
+      const words = parseWordList(decodeURIComponent(encoded));
+      return words.length > 0 ? words : null;
+    } catch {
+      return null;
+    }
+  }
+}
 
 function getTimeWordCount(d: Duration): number {
   const map: Record<Duration, number> = { 15: 60, 30: 110, 60: 200, 120: 360, 0: 200 };
   return map[d];
 }
 
-function getRandomText(mode: Mode, wordCount = 50, duration: Duration = 60): string {
-  if (mode === "words") return generateWordTest(wordCount);
-  if (mode === "time") return generateWordTest(getTimeWordCount(duration));
+function getRandomText(
+  mode: Mode,
+  wordCount = 50,
+  duration: Duration = 60,
+  wordList?: string[]
+): string {
+  if (mode === "words" || mode === "pack") return generateWordTest(wordCount, wordList);
+  if (mode === "time") return generateWordTest(getTimeWordCount(duration), wordList);
   if (mode === "quote") return QUOTES[Math.floor(Math.random() * QUOTES.length)].text;
   if (mode === "code") return CODE_SNIPPETS[Math.floor(Math.random() * CODE_SNIPPETS.length)].text;
   if (mode === "pangram") return PANGRAMS[Math.floor(Math.random() * PANGRAMS.length)];
   if (mode === "daily") return getDailyChallenge().text;
-  return generateWordTest(wordCount);
+  return generateWordTest(wordCount, wordList);
 }
 
 function getNewSessionLabel(mode: Mode): string {
@@ -51,6 +114,7 @@ function getNewSessionLabel(mode: Mode): string {
   if (mode === "code") return "New code snippet";
   if (mode === "quote") return "New quote";
   if (mode === "pangram") return "New pangram";
+  if (mode === "pack") return "New pack session";
   return "New practice session";
 }
 
@@ -58,11 +122,20 @@ function getNewSessionLabel(mode: Mode): string {
 function PracticeInner() {
   const searchParams = useSearchParams();
   const drillParam = searchParams.get("drill");
+  const packParam = searchParams.get("pack");
   const { data: session, status } = useSession();
+  const { toast } = useToast();
 
   const [mode, setMode] = useState<Mode>("words");
   const [duration, setDuration] = useState<Duration>(60);
   const [wordCount, setWordCount] = useState<WordCount>(50);
+  const [langCode, setLangCode] = useState("en");
+  const [layout, setLayout] = useState<Layout>("qwerty");
+  const [activeWordList, setActiveWordList] = useState<string[] | undefined>(undefined);
+  const [customPacks, setCustomPacks] = useState<CustomPack[]>([]);
+  const [packDraft, setPackDraft] = useState("");
+  const [packName, setPackName] = useState("");
+  const [selectedPackId, setSelectedPackId] = useState<string>("programming");
   const [text, setText] = useState<string>(() => drillParam || getRandomText("words", 50, 60));
   const [customText, setCustomText] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -84,14 +157,53 @@ function PracticeInner() {
   const [syncedStreak, setSyncedStreak] = useState<StreakInfo | null>(null);
   const [syncedXp, setSyncedXp] = useState<import("@/lib/server/db").XpGainResult | null>(null);
   const newSessionShortcutArmedUntilRef = useRef(0);
+  const packParamHandled = useRef(false);
 
   const weakKeys = useAnalyticsStore((s) => s.getWeakestKeys(5));
   const slowBigrams = useAnalyticsStore((s) => s.getSlowestBigrams(3));
   const avgWpm = useAnalyticsStore((s) => s.getAverageWpm());
 
+  const currentWordList = useMemo(() => {
+    if (activeWordList && activeWordList.length > 0) return activeWordList;
+    if (mode === "words" || mode === "time") {
+      return getLanguagePack(langCode).wordList;
+    }
+    return undefined;
+  }, [activeWordList, mode, langCode]);
+
+  // Hydrate layout + language + custom packs from localStorage
+  useEffect(() => {
+    setLayout(loadSavedLayout());
+    const savedLang = localStorage.getItem(LANG_STORAGE_KEY);
+    if (savedLang && LANGUAGE_PACKS.some((p) => p.code === savedLang)) {
+      setLangCode(savedLang);
+    }
+    setCustomPacks(loadCustomPacks());
+  }, []);
+
   useEffect(() => {
     if (drillParam) { setText(drillParam); setDrillText(drillParam); setMode("words"); }
   }, [drillParam]);
+
+  // /practice?pack=base64urlencoded
+  useEffect(() => {
+    if (!packParam || packParamHandled.current) return;
+    packParamHandled.current = true;
+    const words = decodePackParam(packParam);
+    if (!words) {
+      toast("Could not decode pack from URL.", "error");
+      return;
+    }
+    setActiveWordList(words);
+    setMode("pack");
+    setShowCustomInput(false);
+    setDrillText(null);
+    const next = generateWordTest(50, words);
+    setText(next);
+    setResult(null);
+    setTestKey((k) => k + 1);
+    toast(`Loaded pack (${words.length} words) from URL.`, "success");
+  }, [packParam, toast]);
 
   useEffect(() => {
     let active = true;
@@ -113,7 +225,7 @@ function PracticeInner() {
   }, []);
 
   const newTest = useCallback((newText?: string) => {
-    setText(newText ?? (drillText ?? getRandomText(mode, wordCount, duration)));
+    setText(newText ?? (drillText ?? getRandomText(mode, wordCount, duration, currentWordList)));
     setResult(null);
     setDrillError(null);
     setDrillProviderUsed(null);
@@ -123,14 +235,45 @@ function PracticeInner() {
     setSyncedStreak(null);
     setSyncedXp(null);
     setTestKey((k) => k + 1);
-  }, [mode, drillText, wordCount, duration]);
+  }, [mode, drillText, wordCount, duration, currentWordList]);
 
   const handleModeChange = (m: Mode) => {
     setMode(m);
     setDrillText(null);
-    if (m === "custom") { setShowCustomInput(true); return; }
+    if (m === "custom") {
+      setShowCustomInput(true);
+      setActiveWordList(undefined);
+      return;
+    }
+    if (m === "pack") {
+      setShowCustomInput(false);
+      const words =
+        selectedPackId === "programming"
+          ? PROGRAMMING_WORDS
+          : customPacks.find((p) => p.id === selectedPackId)?.words ?? PROGRAMMING_WORDS;
+      setActiveWordList(words);
+      newTest(getRandomText("pack", wordCount, duration, words));
+      return;
+    }
     setShowCustomInput(false);
-    newTest(getRandomText(m, wordCount, duration));
+    setActiveWordList(undefined);
+    const list = m === "words" || m === "time" ? getLanguagePack(langCode).wordList : undefined;
+    newTest(getRandomText(m, wordCount, duration, list));
+  };
+
+  const handleLangChange = (code: string) => {
+    setLangCode(code);
+    localStorage.setItem(LANG_STORAGE_KEY, code);
+    if (mode === "words" || mode === "time") {
+      setActiveWordList(undefined);
+      setDrillText(null);
+      newTest(getRandomText(mode, wordCount, duration, getLanguagePack(code).wordList));
+    }
+  };
+
+  const handleLayoutChange = (next: Layout) => {
+    setLayout(next);
+    localStorage.setItem(LAYOUT_STORAGE_KEY, next);
   };
 
   const handleRetrySame = useCallback(() => {
@@ -152,8 +295,8 @@ function PracticeInner() {
     }
     newSessionShortcutArmedUntilRef.current = 0;
     setDrillText(null);
-    newTest(getRandomText(mode, wordCount, duration));
-  }, [mode, wordCount, duration, handleRetrySame, newTest]);
+    newTest(getRandomText(mode, wordCount, duration, currentWordList));
+  }, [mode, wordCount, duration, handleRetrySame, newTest, currentWordList]);
 
   const handleComplete = async (r: SessionResult) => {
     setShowLoadingAnalysis(true);
@@ -195,10 +338,12 @@ function PracticeInner() {
         setShowLoadingAnalysis(false);
       }, 1200);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to sync this session.";
       setTimeout(() => {
-        setSubmitError(error instanceof Error ? error.message : "Failed to sync this session.");
+        setSubmitError(msg);
         setResult(r);
         setShowLoadingAnalysis(false);
+        toast(msg + " Local analytics still saved.", "error");
       }, 1200);
     }
   };
@@ -209,6 +354,42 @@ function PracticeInner() {
     setShowCustomInput(false);
     setResult(null);
     setTestKey((k) => k + 1);
+  };
+
+  const handleSavePack = () => {
+    const words = parseWordList(packDraft);
+    if (words.length === 0) {
+      toast("Paste some words first (comma or newline separated).", "error");
+      return;
+    }
+    const pack: CustomPack = {
+      id: `pack_${Date.now().toString(36)}`,
+      name: packName.trim() || `Pack ${customPacks.length + 1}`,
+      words,
+      createdAt: Date.now(),
+    };
+    const next = [...customPacks, pack];
+    setCustomPacks(next);
+    saveCustomPacks(next);
+    setSelectedPackId(pack.id);
+    setActiveWordList(words);
+    setMode("pack");
+    setShowCustomInput(false);
+    newTest(getRandomText("pack", wordCount, duration, words));
+    toast(`Saved “${pack.name}” (${words.length} words).`, "success");
+  };
+
+  const handleSelectPack = (id: string) => {
+    setSelectedPackId(id);
+    const words =
+      id === "programming"
+        ? PROGRAMMING_WORDS
+        : customPacks.find((p) => p.id === id)?.words ?? [];
+    if (!words.length) return;
+    setActiveWordList(words);
+    setMode("pack");
+    setDrillText(null);
+    newTest(getRandomText("pack", wordCount, duration, words));
   };
 
   const handleGenerateDrill = async () => {
@@ -249,7 +430,9 @@ function PracticeInner() {
         throw new Error("Empty drill response.");
       }
     } catch (error) {
-      setDrillError(error instanceof Error ? error.message : "Failed to generate drill.");
+      const msg = error instanceof Error ? error.message : "Failed to generate drill.";
+      setDrillError(msg);
+      toast(msg, "error");
     } finally {
       setLoadingDrill(false);
     }
@@ -295,6 +478,7 @@ function PracticeInner() {
     { id: "code", label: "code" },
     { id: "pangram", label: "pangram", icon: <AlignLeft size={10} /> },
     { id: "daily", label: "daily", icon: <Calendar size={10} /> },
+    { id: "pack", label: "pack", icon: <Package size={10} /> },
     { id: "custom", label: "custom" },
   ];
 
@@ -324,11 +508,19 @@ function PracticeInner() {
         </Link>
         <div className="flex items-center gap-6 text-sm text-slate-500">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
+          <Link href="/race" className="hover:text-slate-200">Race</Link>
           <Link href="/analytics" className="hover:text-slate-200">Analytics</Link>
           <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
+          <ThemeSwitcher />
           <AuthButtons />
         </div>
       </nav>
+
+      {/* Mobile warning banner */}
+      <div className="md:hidden flex items-center gap-2 px-4 py-2.5 bg-amber-950/30 border-b border-amber-900/30 text-amber-300 text-xs font-mono">
+        <Monitor size={12} />
+        typdr works best on desktop — mobile support coming soon.
+      </div>
 
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         {/* Mode + sub-controls */}
@@ -357,11 +549,34 @@ function PracticeInner() {
               ))}
             </div>
 
+            {(mode === "words" || mode === "time") && (
+              <div className="flex items-center gap-1 bg-surface-secondary border border-surface-border rounded-lg p-1">
+                {LANGUAGE_PACKS.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLangChange(lang.code)}
+                    title={lang.name}
+                    className={`px-2.5 py-1.5 rounded-md font-mono text-xs uppercase transition-all ${
+                      langCode === lang.code
+                        ? "bg-surface-tertiary text-slate-100 font-bold border border-surface-border"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {lang.code}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {mode === "words" && (
               <div className="flex items-center gap-1 bg-surface-secondary border border-surface-border rounded-lg p-1">
                 {WORD_COUNTS.map((c) => (
                   <button key={c.value}
-                    onClick={() => { setWordCount(c.value); setDrillText(null); newTest(getRandomText("words", c.value, duration)); }}
+                    onClick={() => {
+                      setWordCount(c.value);
+                      setDrillText(null);
+                      newTest(getRandomText("words", c.value, duration, currentWordList));
+                    }}
                     className={`px-3 py-1.5 rounded-md font-mono text-xs transition-all ${wordCount === c.value
                         ? "bg-surface-tertiary text-slate-100 font-bold border border-surface-border"
                         : "text-slate-500 hover:text-slate-300"
@@ -376,7 +591,11 @@ function PracticeInner() {
               <div className="flex items-center gap-1 bg-surface-secondary border border-surface-border rounded-lg p-1">
                 {DURATIONS.map((d) => (
                   <button key={d.value}
-                    onClick={() => { setDuration(d.value); setDrillText(null); newTest(getRandomText("time", wordCount, d.value)); }}
+                    onClick={() => {
+                      setDuration(d.value);
+                      setDrillText(null);
+                      newTest(getRandomText("time", wordCount, d.value, currentWordList));
+                    }}
                     className={`px-3 py-1.5 rounded-md font-mono text-xs transition-all ${duration === d.value
                         ? "bg-surface-tertiary text-slate-100 font-bold border border-surface-border"
                         : "text-slate-500 hover:text-slate-300"
@@ -386,10 +605,31 @@ function PracticeInner() {
                 ))}
               </div>
             )}
+
+            {/* Layout switcher */}
+            <div className="flex items-center gap-1 bg-surface-secondary border border-surface-border rounded-lg p-1">
+              <span className="px-1.5 text-slate-600" title="Keyboard layout">
+                <Keyboard size={11} />
+              </span>
+              {(Object.keys(LAYOUTS) as Layout[]).map((id) => (
+                <button
+                  key={id}
+                  onClick={() => handleLayoutChange(id)}
+                  className={`px-2 py-1.5 rounded-md font-mono text-[10px] transition-all ${
+                    layout === id
+                      ? "bg-surface-tertiary text-slate-100 font-bold border border-surface-border"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                  title={LAYOUT_LABELS[id]}
+                >
+                  {LAYOUT_LABELS[id]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Custom input */}
+        {/* Custom text input */}
         <AnimatePresence>
           {showCustomInput && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
@@ -411,6 +651,71 @@ function PracticeInner() {
           )}
         </AnimatePresence>
 
+        {/* Pack mode panel */}
+        <AnimatePresence>
+          {mode === "pack" && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="w-full max-w-5xl mb-8 overflow-hidden"
+            >
+              <div className="rounded-xl border border-surface-border bg-surface-secondary p-4 space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-mono text-slate-500">Active pack:</span>
+                  <button
+                    onClick={() => handleSelectPack("programming")}
+                    className={`px-3 py-1 rounded-md font-mono text-xs border transition-all ${
+                      selectedPackId === "programming"
+                        ? "border-brand/40 bg-brand/10 text-brand"
+                        : "border-surface-border text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Programming
+                  </button>
+                  {customPacks.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleSelectPack(p.id)}
+                      className={`px-3 py-1 rounded-md font-mono text-xs border transition-all ${
+                        selectedPackId === p.id
+                          ? "border-brand/40 bg-brand/10 text-brand"
+                          : "border-surface-border text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono text-slate-500 mb-1.5 uppercase tracking-wide">
+                    Save a custom word pack
+                  </label>
+                  <input
+                    value={packName}
+                    onChange={(e) => setPackName(e.target.value)}
+                    placeholder="Pack name (optional)"
+                    className="w-full mb-2 bg-surface border border-surface-border rounded-lg px-3 py-2 font-mono text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-brand/50"
+                  />
+                  <textarea
+                    value={packDraft}
+                    onChange={(e) => setPackDraft(e.target.value)}
+                    placeholder="Paste words separated by commas or newlines…"
+                    className="w-full h-24 bg-surface border border-surface-border rounded-xl p-3 font-mono text-sm text-slate-200 placeholder-slate-600 resize-none focus:outline-none focus:border-brand/50"
+                  />
+                  <button
+                    onClick={handleSavePack}
+                    className="mt-2 px-4 py-2 bg-brand text-surface font-mono font-bold text-xs rounded-lg hover:bg-brand-dim"
+                  >
+                    Save pack &amp; practice →
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Drill banner */}
         {drillText && (
           <div className="w-full max-w-5xl mb-4 flex items-center gap-2 px-4 py-2.5 bg-surface-tertiary border border-brand/20 rounded-xl text-xs font-mono text-brand">
@@ -420,7 +725,7 @@ function PracticeInner() {
                 via {drillProviderUsed}
               </span>
             )}
-            <button onClick={() => { setDrillText(null); newTest(getRandomText(mode, wordCount, duration)); }}
+            <button onClick={() => { setDrillText(null); newTest(getRandomText(mode, wordCount, duration, currentWordList)); }}
               className="ml-auto text-slate-500 hover:text-slate-300">✕ clear drill</button>
           </div>
         )}
@@ -462,7 +767,7 @@ function PracticeInner() {
                 <TypingBox
                   key={testKey}
                   text={text}
-                  mode={["custom", "daily", "pangram"].includes(mode) ? "custom" : mode as SessionResult["mode"]}
+                  mode={["custom", "daily", "pangram", "pack"].includes(mode) ? "custom" : mode as SessionResult["mode"]}
                   duration={mode === "time" ? duration : 0}
                   onComplete={handleComplete}
                   onRestart={handleRetrySame}
@@ -483,7 +788,7 @@ function PracticeInner() {
             <button onClick={handleNewSession}
               className="flex items-center gap-1.5 text-slate-600 font-mono text-xs hover:text-slate-400 transition-all">
               <Shuffle size={11} />
-              {mode === "daily" ? "same text (daily)" : `new ${mode === "code" ? "snippet" : mode === "quote" ? "quote" : mode === "pangram" ? "pangram" : "text"}`}
+              {mode === "daily" ? "same text (daily)" : `new ${mode === "code" ? "snippet" : mode === "quote" ? "quote" : mode === "pangram" ? "pangram" : mode === "pack" ? "pack" : "text"}`}
             </button>
           </div>
         )}

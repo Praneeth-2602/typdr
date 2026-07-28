@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const limitValue = Number(searchParams.get("limit") ?? "10");
-    const limit = Number.isFinite(limitValue) ? Math.min(Math.max(limitValue, 1), 50) : 10;
+    const limit = Number.isFinite(limitValue) ? Math.min(Math.max(limitValue, 1), 100) : 10;
 
     const { leaderboard } = await getCollections();
     const entries = await leaderboard

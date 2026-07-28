@@ -29,3 +29,7 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# build artifacts / zips
+*.zip
+*.tar.gz

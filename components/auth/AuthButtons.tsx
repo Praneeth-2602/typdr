@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Flame, History, LogOut, Trophy, User, Zap } from "lucide-react";
+import { ChevronDown, Flame, History, LogOut, Trophy, User, Zap, UserCircle } from "lucide-react";
 import { XpBar } from "@/components/gamification/XpBar";
 import { useAnalyticsStore } from "@/lib/stores/analytics";
 
@@ -273,6 +273,15 @@ export function AuthButtons() {
                 )}
               </>
             )}
+
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-brand/20 bg-brand/5 px-4 py-3 font-mono text-sm text-brand transition-all hover:bg-brand/10"
+            >
+              <UserCircle size={14} />
+              View full profile
+            </Link>
 
             <button
               onClick={() => signOut({ callbackUrl: "/" })}

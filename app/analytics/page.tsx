@@ -19,12 +19,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Zap, Trash2, TrendingUp, TrendingDown, Target, Activity, Flame, Download, Trophy } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
+import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { KeyboardHeatmap } from "@/components/keyboard/KeyboardHeatmap";
 import { PageLoader } from "@/components/PageLoader";
 import { AuthButtons } from "@/components/auth/AuthButtons";
 import { useAnalyticsStore } from "@/lib/stores/analytics";
 import type { StreakInfo, WeakKeyStat } from "@/lib/stores/analytics";
 import { XpBar } from "@/components/gamification/XpBar";
+import { loadSavedLayout, type Layout } from "@/lib/data/keyboard";
 
 type HeatmapView = "accuracy" | "volume" | "finger";
 
@@ -89,7 +92,9 @@ export default function AnalyticsPage() {
   const [drillError, setDrillError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [heatmapView, setHeatmapView]   = useState<HeatmapView>("accuracy");
+  const [layout, setLayout] = useState<Layout>("qwerty");
   const [exportingCsv, setExportingCsv] = useState(false);
+  const { toast } = useToast();
   const [loadingServerData, setLoadingServerData] = useState(status === "authenticated");
   const [serverWeakKeys, setServerWeakKeys] = useState<WeakKeyStat[] | null>(null);
   const [serverStrongKeys, setServerStrongKeys] = useState<WeakKeyStat[] | null>(null);
@@ -119,6 +124,10 @@ export default function AnalyticsPage() {
   const displayedWeakKeys = serverWeakKeys ?? weakKeyStats;
   const displayedStrongKeys = serverStrongKeys ?? strongKeyStats;
   const displayedStreak = serverStreak ?? streakInfo;
+
+  useEffect(() => {
+    setLayout(loadSavedLayout());
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -237,7 +246,9 @@ export default function AnalyticsPage() {
         throw new Error("Empty drill response.");
       }
     } catch (error) {
-      setDrillError(error instanceof Error ? error.message : "Failed to generate drill");
+      const msg = error instanceof Error ? error.message : "Failed to generate drill";
+      setDrillError(msg);
+      toast(msg, "error");
     } finally {
       setLoadingDrill(false);
     }
@@ -259,7 +270,7 @@ export default function AnalyticsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Export failed");
+      toast("Export failed. Please try again.", "error");
     } finally {
       setExportingCsv(false);
     }
@@ -294,10 +305,11 @@ export default function AnalyticsPage() {
     <div className="min-h-screen bg-surface">
       <nav className="flex items-center justify-between px-8 py-4 border-b border-surface-border/50">
         <Link href="/" className="font-mono font-bold text-base"><span className="text-brand">typ</span><span className="text-sky-400">dr</span></Link>
-        <div className="flex gap-6 text-sm text-slate-500">
+        <div className="flex gap-6 text-sm text-slate-500 items-center">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>
           <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
+          <ThemeSwitcher />
           <AuthButtons />
         </div>
       </nav>
@@ -596,6 +608,7 @@ export default function AnalyticsPage() {
             <KeyboardHeatmap
               heatmap={heatmap}
               showFingerColors={heatmapView === "finger"}
+              layout={layout}
             />
             {heatmapView === "volume" && (
               <p className="text-xs text-slate-600 font-mono mt-3">

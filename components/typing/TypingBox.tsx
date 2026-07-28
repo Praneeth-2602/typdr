@@ -343,12 +343,17 @@ export function TypingBox({
         </div>
       )}
 
-      {/* Typing area */}
+      {/* Typing area — input overlays the surface so iOS/Android can open the keyboard */}
       <div
         className="relative min-h-[15rem] overflow-hidden rounded-[28px] border border-surface-border bg-[linear-gradient(180deg,rgba(30,33,39,0.92),rgba(18,19,24,0.98))] px-6 py-7 font-mono text-xl leading-[2.5rem] tracking-[0.02em] select-none cursor-text shadow-[0_20px_60px_rgba(0,0,0,0.22)]"
-        onClick={() => inputRef.current?.focus()}
+        onPointerDown={(e) => {
+          // Don't steal focus from the overlay input itself
+          if (e.target === inputRef.current) return;
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
         role="textbox"
-        aria-label="Typing area — click to focus"
+        aria-label="Typing area — tap to focus"
       >
         <AnimatePresence>
           {!started && !finished && (
@@ -422,23 +427,35 @@ export function TypingBox({
             </motion.div>
           </AnimatePresence>
         </div>
-      </div>
 
-      <input
-        ref={inputRef}
-        type="text"
-        value={typed}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onBlur={() => { if (!finishedRef.current) setTimeout(() => inputRef.current?.focus(), 80); }}
-        className="opacity-0 absolute -z-10 w-px h-px overflow-hidden"
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        spellCheck={false}
-        tabIndex={0}
-        aria-hidden="true"
-      />
+        {/*
+          Full-area transparent input ON TOP of the styled display so mobile
+          Safari/Chrome reliably open the virtual keyboard on tap.
+        */}
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="text"
+          enterKeyHint="done"
+          value={typed}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onBlur={() => {
+            if (finishedRef.current) return;
+            if (typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches) {
+              setTimeout(() => inputRef.current?.focus(), 80);
+            }
+          }}
+          className="absolute inset-0 z-10 h-full w-full cursor-text opacity-0"
+          style={{ WebkitUserSelect: "text", fontSize: "16px" }}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          tabIndex={0}
+          aria-label="Type here"
+        />
+      </div>
 
       <div className="mt-6 flex items-center justify-center gap-5 text-xs font-mono text-slate-600">
         <span className="flex items-center gap-1.5"><Kbd>Esc</Kbd><span>restart</span></span>

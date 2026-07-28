@@ -6,6 +6,34 @@
 
 :root {
   --cursor-color: #e8f55c;
+
+  /* Default theme (typdr) — hex */
+  --bg: #0e0e10;
+  --surface: #0e0e10;
+  --surface-2: #141416;
+  --surface-3: #1a1a1e;
+  --surface-border: #2a2a30;
+  --surface-hover: #222228;
+  --brand: #e8f55c;
+  --brand-dim: #c9d94e;
+  --brand-muted: #b5c240;
+  --correct: #4ade80;
+  --incorrect: #f87171;
+  --pending: #94a3b8;
+
+  /* Default theme — RGB channels for Tailwind opacity modifiers */
+  --surface-rgb: 14 14 16;
+  --surface-2-rgb: 20 20 22;
+  --surface-3-rgb: 26 26 30;
+  --surface-border-rgb: 42 42 48;
+  --surface-hover-rgb: 34 34 40;
+  --brand-rgb: 232 245 92;
+  --brand-dim-rgb: 201 217 78;
+  --brand-muted-rgb: 181 194 64;
+  --correct-rgb: 74 222 128;
+  --incorrect-rgb: 248 113 113;
+  --pending-rgb: 148 163 184;
+  --cursor-rgb: 232 245 92;
 }
 
 * {
@@ -17,7 +45,7 @@ html {
 }
 
 body {
-  background-color: #0e0e10;
+  background-color: var(--bg, #0e0e10);
   color: #e2e8f0;
   font-family: "DM Sans", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

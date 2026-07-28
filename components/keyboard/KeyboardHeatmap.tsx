@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { KEYBOARD_LAYOUT, FINGER_COLORS } from "@/lib/data/keyboard";
+import { FINGER_COLORS, getLayout, type Layout } from "@/lib/data/keyboard";
 
 interface KeyboardHeatmapProps {
   heatmap: Record<string, { accuracy: number; volume: number }>;
@@ -9,16 +9,17 @@ interface KeyboardHeatmapProps {
   showFingerColors?: boolean;
   activeKey?: string;
   compact?: boolean;
+  layout?: Layout;
 }
 
-const ROW_OFFSETS = [0, 0.5, 0.75, 1.25]; // em offsets for each row
+const ROW_OFFSETS = [0, 0.5, 0.75, 1.25];
 
 function getHeatColor(accuracy: number, volume: number): string {
   if (volume === 0) return "transparent";
-  if (accuracy >= 97) return "#4ade8022"; // green tint
-  if (accuracy >= 90) return "#fbbf2422"; // amber
-  if (accuracy >= 80) return "#fb923c33"; // orange
-  return "#f8717133"; // red
+  if (accuracy >= 97) return "#4ade8022";
+  if (accuracy >= 90) return "#fbbf2422";
+  if (accuracy >= 80) return "#fb923c33";
+  return "#f8717133";
 }
 
 function getTextColor(accuracy: number, volume: number): string {
@@ -35,12 +36,14 @@ export function KeyboardHeatmap({
   showFingerColors = false,
   activeKey,
   compact = false,
+  layout = "qwerty",
 }: KeyboardHeatmapProps) {
   const keySize = compact ? "w-7 h-7 text-[10px]" : "w-9 h-9 text-xs";
+  const board = getLayout(layout);
 
   return (
     <div className="font-mono select-none">
-      {KEYBOARD_LAYOUT.map((row, rowIdx) => {
+      {board.map((row, rowIdx) => {
         const offset = ROW_OFFSETS[rowIdx];
         return (
           <div
@@ -77,7 +80,7 @@ export function KeyboardHeatmap({
 
               return (
                 <div
-                  key={k}
+                  key={`${rowIdx}-${k}`}
                   className={clsx(
                     keySize,
                     "relative flex flex-col items-center justify-center rounded border transition-all duration-100",
@@ -94,7 +97,6 @@ export function KeyboardHeatmap({
                       : k
                   }
                 >
-                  {/* Home key indicator dot */}
                   {keyInfo.isHomeKey && !compact && (
                     <span
                       className="absolute bottom-0.5 w-1 h-1 rounded-full"
@@ -119,7 +121,6 @@ export function KeyboardHeatmap({
         );
       })}
 
-      {/* Spacebar */}
       <div className="flex mt-1" style={{ paddingLeft: compact ? "100px" : "140px" }}>
         <div
           className={clsx(
@@ -133,7 +134,6 @@ export function KeyboardHeatmap({
         />
       </div>
 
-      {/* Legend */}
       {!compact && Object.keys(heatmap).length > 0 && (
         <div className="flex items-center gap-4 mt-4 text-[10px] text-slate-500">
           <div className="flex items-center gap-1">

@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { Keyboard, BarChart3, Zap, ArrowRight, BookOpen } from "lucide-react";
 import { AuthButtons } from "@/components/auth/AuthButtons";
 import { PageLoader } from "@/components/PageLoader";
+import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
+import { SeasonBanner } from "@/components/seasons/SeasonBanner";
 
 const features = [
   {
@@ -49,8 +51,10 @@ export default function HomePage() {
         <div className="flex items-center gap-6 text-sm text-slate-400">
           <Link href="/learn" className="hover:text-slate-200">Learn</Link>
           <Link href="/practice" className="hover:text-slate-200">Practice</Link>
+          <Link href="/race" className="hover:text-slate-200">Race</Link>
           <Link href="/analytics" className="hover:text-slate-200">Analytics</Link>
           <Link href="/leaderboard" className="hover:text-slate-200">Leaderboard</Link>
+          <ThemeSwitcher />
           <AuthButtons />
           <Link
             href="/practice"
@@ -114,6 +118,10 @@ export default function HomePage() {
           ))}
         </motion.div>
       </section>
+
+      <div className="px-8 pb-8 max-w-5xl mx-auto w-full">
+        <SeasonBanner compact />
+      </div>
 
       {/* Feature cards */}
       <section className="px-8 pb-20 max-w-5xl mx-auto w-full">

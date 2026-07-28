@@ -11,22 +11,24 @@ module.exports = {
         sans: ["'DM Sans'", "system-ui", "sans-serif"],
       },
       colors: {
+        // Themeable colors (set by lib/data/themes.ts via CSS variables)
+        // Note: using rgb(var(--x-rgb) / <alpha-value>) so tailwind opacity modifiers like /50 work.
         surface: {
-          DEFAULT: "#0e0e10",
-          secondary: "#141416",
-          tertiary: "#1a1a1e",
-          border: "#2a2a30",
-          hover: "#222228",
+          DEFAULT: "rgb(var(--surface-rgb) / <alpha-value>)",
+          secondary: "rgb(var(--surface-2-rgb) / <alpha-value>)",
+          tertiary: "rgb(var(--surface-3-rgb) / <alpha-value>)",
+          border: "rgb(var(--surface-border-rgb) / <alpha-value>)",
+          hover: "rgb(var(--surface-hover-rgb) / <alpha-value>)",
         },
         brand: {
-          DEFAULT: "#e8f55c",   // neon-lime accent
-          dim: "#c9d94e",
-          muted: "#b5c240",
+          DEFAULT: "rgb(var(--brand-rgb) / <alpha-value>)",
+          dim: "rgb(var(--brand-dim-rgb) / <alpha-value>)",
+          muted: "rgb(var(--brand-muted-rgb) / <alpha-value>)",
         },
-        correct: "#4ade80",
-        incorrect: "#f87171",
-        pending: "#94a3b8",
-        cursor: "#e8f55c",
+        correct: "rgb(var(--correct-rgb) / <alpha-value>)",
+        incorrect: "rgb(var(--incorrect-rgb) / <alpha-value>)",
+        pending: "rgb(var(--pending-rgb) / <alpha-value>)",
+        cursor: "rgb(var(--cursor-rgb) / <alpha-value>)",
       },
       keyframes: {
         blink: {
