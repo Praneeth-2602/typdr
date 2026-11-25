@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "../styles/globals.css";
+import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { ToastProvider } from "@/components/ui/Toast";
 import { PwaRegister } from "@/components/providers/PwaRegister";
@@ -46,6 +47,7 @@ export default function RootLayout({
           <ToastProvider>
             {children}
             <PwaRegister />
+            <Analytics />
           </ToastProvider>
         </AuthProvider>
       </body>
